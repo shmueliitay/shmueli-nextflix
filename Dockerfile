@@ -1,25 +1,34 @@
-# Use an official Node.js runtime as the base image
-FROM node:20
+# Stage 1: Build the application
+FROM node:20 as builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
+# Copy package.json and install dependencies
 COPY package*.json ./
-
-# Install application dependencies
 RUN npm install
-RUN npm install typescript@latest --save-dev
 
-# Copy the rest of the application's source code
+# Copy source code and build
 COPY . .
-
-ENV NODE_OPTIONS=--openssl-legacy-provider
-# Build the Next.js application for production
 RUN npm run build
+
+# Stage 2: Create the production image
+FROM node:20-slim as runner
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--openssl-legacy-provider
+
+WORKDIR /app
+
+# Copy from the builder stage
+COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
 # Expose the port the application will run on
 EXPOSE 3000
 
-# Command to run the application in production mode
+# Start the application
 CMD ["npm", "start"]
