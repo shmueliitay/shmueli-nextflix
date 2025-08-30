@@ -14,6 +14,7 @@ RUN npm install typescript@latest --save-dev
 # Copy the rest of the application's source code
 COPY . .
 
+ENV NODE_OPTIONS=--openssl-legacy-provider
 # Build the Next.js application for production
 RUN npm run build
 
