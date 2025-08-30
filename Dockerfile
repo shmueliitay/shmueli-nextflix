@@ -3,6 +3,10 @@ FROM node:20 as builder
 
 WORKDIR /app
 
+# Set environment variables for the build process
+ENV NODE_OPTIONS=--openssl-legacy-provider
+
+
 # Copy package.json and install dependencies
 COPY package*.json ./
 RUN npm install
