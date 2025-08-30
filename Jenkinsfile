@@ -4,8 +4,8 @@ pipeline {
     environment {
         ECR_REPO = "shmueli-nexflix"
         AWS_REGION = "eu-central-1"
-        STAGING_EC2 = "ubuntu@<>"
-        PRODUCTION_EC2 = "ubuntu@<PRODUCTION_EC2_PUBLIC_IP>"
+        STAGING_EC2 = "ubuntu@63.179.106.250"
+        PRODUCTION_EC2 = "ubuntu@3.73.86.50"
         DOCKER_IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
     }
 
@@ -30,7 +30,7 @@ pipeline {
                 script {
                     sh """
                     aws ecr get-login-password --region ${AWS_REGION} | \
-                    docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    docker login --username AWS --password-stdin 630019796862.dkr.ecr.eu-central-1.amazonaws.com/shmueli-nextflix.amazonaws.com
                     """
                 }
             }
@@ -39,8 +39,8 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 script {
-                    sh "docker tag ${ECR_REPO}:${DOCKER_IMAGE_TAG} <AWS_ACCOUNT_ID>.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}"
-                    sh "docker push <AWS_ACCOUNT_ID>.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}"
+                    sh "docker tag ${ECR_REPO}:${DOCKER_IMAGE_TAG} 630019796862.dkr.ecr.eu-central-1.amazonaws.com/shmueli-nextflix.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}"
+                    sh "docker push 630019796862.dkr.ecr.eu-central-1.amazonaws.com/shmueli-nextflix.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}"
                 }
             }
         }
@@ -51,9 +51,9 @@ pipeline {
                     def target = env.CHANGE_ID ? STAGING_EC2 : PRODUCTION_EC2
                     sh """
                     ssh -o StrictHostKeyChecking=no ${target} \\
-                        'docker pull <AWS_ACCOUNT_ID>.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG} && \\
+                        'docker pull 630019796862.dkr.ecr.eu-central-1.amazonaws.com/shmueli-nextflix.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG} && \\
                          docker stop nextflix || true && docker rm nextflix || true && \\
-                         docker run -d --name nextflix -p 3000:3000 <AWS_ACCOUNT_ID>.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}'
+                         docker run -d --name nextflix -p 3000:3000 630019796862.dkr.ecr.eu-central-1.amazonaws.com/shmueli-nextflix.amazonaws.com/${ECR_REPO}:${DOCKER_IMAGE_TAG}'
                     """
                 }
             }
