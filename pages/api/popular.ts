@@ -28,5 +28,5 @@ export default async function handler(request: NextApiRequest, response: NextApi
   } catch (error: any) {
   console.log(error?.data || error?.message || error);
   response.status(500).json({ type: 'Error', data: error?.data || error?.message || error });
-
+  }
 }
