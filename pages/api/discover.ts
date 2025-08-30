@@ -27,8 +27,8 @@ export default async function handler(request: NextApiRequest, response: NextApi
     const data = parse(result.data.results, type as MediaType);
 
     response.status(200).json({ type: 'Success', data });
-  } catch (error) {
-    console.log(error.data);
-    response.status(500).json({ type: 'Error', data: error.data });
+  } catch (error:any) {
+    console.log(error?.data || error?.message || error);
+    response.status(500).json({ type: 'Error', data: error?.data || error?.message || error });
   }
 }
