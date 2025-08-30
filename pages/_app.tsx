@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import Layout from '../components/Layout';
 import Head from 'next/head';
 import '../styles/globals.scss';
 import type { AppProps } from 'next/app';
