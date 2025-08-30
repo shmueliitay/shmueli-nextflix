@@ -28,3 +28,4 @@ export default async function handler(request: NextApiRequest, response: NextApi
     response.status(500).json({ type: 'Error', data: error?.data || error?.message || 'Unknown error' });
   
 }
+}
