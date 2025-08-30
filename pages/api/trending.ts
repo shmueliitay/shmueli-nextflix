@@ -23,8 +23,8 @@ export default async function handler(request: NextApiRequest, response: NextApi
     const data = parse(result.data.results, type as MediaType);
 
     response.status(200).json({ type: 'Success', data });
-  } catch (error) {
+  } catch (error: any) {
     console.log(error.data);
-    response.status(500).json({ type: 'Error', data: error.data });
-  }
+    response.status(500).json({ type: 'Error', data: error?.data || error?.message || 'Unknown error' });
+  
 }
