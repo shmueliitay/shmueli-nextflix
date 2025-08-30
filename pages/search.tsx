@@ -1,11 +1,10 @@
-import dynamic from "next/dynamic";
-
-const Layout = dynamic(import('../components/Layout'));
+import Layout from '../components/Layout';
 
 export default function Search() {
-    return (
-        <Layout>
-            
-        </Layout>
-    )
+  return (
+    <Layout>
+      {/* search page content here */}
+    </Layout>
+  );
 }
+
