@@ -4,8 +4,8 @@ pipeline {
     environment {
         ECR_REPO = "shmueli-nexflix"
         AWS_REGION = "eu-central-1"
-        STAGING_EC2 = "ubuntu@63.179.106.250"
-        PRODUCTION_EC2 = "ubuntu@3.73.86.50"
+        STAGING_EC2 = "ubuntu@3.120.157.125"
+        PRODUCTION_EC2 = "ubuntu@3.75.82.36"
         DOCKER_IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
     }
 

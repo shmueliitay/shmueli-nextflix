@@ -9,6 +9,7 @@ COPY package*.json ./
 
 # Install application dependencies
 RUN npm install
+RUN npm install typescript@latest --save-dev
 
 # Copy the rest of the application's source code
 COPY . .
