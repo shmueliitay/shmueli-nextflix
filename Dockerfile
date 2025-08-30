@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Set environment variables for the build process
 ENV NODE_OPTIONS=--openssl-legacy-provider
-
+ENV NEXT_SHARP_PATH=
 
 # Copy package.json and install dependencies
 COPY package*.json ./
@@ -24,7 +24,7 @@ ENV NODE_OPTIONS=--openssl-legacy-provider
 
 WORKDIR /app
 
-# Copy from the builder stage
+# Copy the essential files from the builder stage
 COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
