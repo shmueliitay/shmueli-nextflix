@@ -70,7 +70,7 @@ jobs:
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             IMAGE="${{ needs.build.outputs.image }}"
             echo "Deploying $IMAGE on staging"
