@@ -3,7 +3,7 @@ name: CI -> Build & Deploy to Staging
 on:
   push:
     branches:
-      - main   # Trigger only on push to main
+      - main
 
 permissions:
   id-token: write
@@ -18,7 +18,7 @@ jobs:
     name: Build, test and push image
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.build-and-push.outputs.image }}
+      image: ${{ steps.push.outputs.image }}
 
     steps:
       - name: Checkout code
@@ -46,7 +46,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag and push Docker image
-        id: build-and-push
+        id: push   # <-- this id must match the outputs reference
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
