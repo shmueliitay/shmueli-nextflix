@@ -9,6 +9,7 @@ ENV NEXT_SHARP_PATH=
 
 # Copy package.json and install dependencies
 COPY package*.json ./
+COPY next.config.js ./
 RUN npm install
 
 # Copy source code and build
