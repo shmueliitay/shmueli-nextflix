@@ -17,8 +17,6 @@ jobs:
   build:
     name: Build, test and push image
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build-and-push.outputs.image }}
 
     steps:
       - name: Checkout code
@@ -46,21 +44,18 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag and push Docker image
-        id: build-and-push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
         run: |
-          SHORT=${GITHUB_SHA::8}
-          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
+           SHORT=${GITHUB_SHA::8}
+           IMAGE="${{ steps.login-ecr.outputs.registry }}/nextflix:$SHORT"
+           docker build -t "$IMAGE" .
+           docker push "$IMAGE"
+           docker tag "$IMAGE" "${{ steps.login-ecr.outputs.registry }}/nextflix:staging"
+           docker push "${{ steps.login-ecr.outputs.registry }}/nextflix:staging"
+           echo "IMAGE=${{ steps.login-ecr.outputs.registry }}/nextflix:staging" >> $GITHUB_ENV
 
-          STAGING_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:staging"
-          docker tag "$IMAGE" "$STAGING_IMAGE"
-          docker push "$STAGING_IMAGE"
-
-          echo "image=$STAGING_IMAGE" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to Staging
@@ -76,7 +71,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            IMAGE="${{ needs.build.outputs.image }}"
             echo "Deploying $IMAGE on staging"
             /opt/nextflix/deploy.sh "$IMAGE"
 
