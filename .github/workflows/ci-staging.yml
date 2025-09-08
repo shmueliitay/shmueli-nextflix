@@ -71,7 +71,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            IMAGE="${{ steps.login-ecr.outputs.registry }}/nextflix:staging"
             echo "Deploying $IMAGE on staging"
             /opt/nextflix/deploy.sh "$IMAGE"
 
