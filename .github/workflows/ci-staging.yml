@@ -76,10 +76,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          env:
-            IMAGE: ${{ needs.build.outputs.IMAGE }}
           script: |
-           # IMAGE="${{ needs.build.outputs.IMAGE }}"
+            IMAGE="${{ needs.build.outputs.IMAGE }}"
             echo "Deploying $IMAGE on staging"
             /opt/nextflix/deploy.sh "$IMAGE"
 
