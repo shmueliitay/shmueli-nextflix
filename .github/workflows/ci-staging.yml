@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      IMAGE: ${{ steps.set-image.outputs.image }}
+      # Correctly set output name to match the echo command
+      IMAGE: ${{ steps.set-image.outputs.IMAGE }}
 
     steps:
       - name: Checkout code
@@ -53,14 +54,14 @@ jobs:
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
         run: |
           SHORT=${GITHUB_SHA::8}
-          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT"
-          echo "Building $IMAGE"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
-          docker tag "$IMAGE" "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
+          IMAGE_TAG="$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT" # Use a different variable name to avoid conflict
+          echo "Building $IMAGE_TAG"
+          docker build -t "$IMAGE_TAG" .
+          docker push "$IMAGE_TAG"
+          docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
 
-          # Set output for deploy step
+          # Set output for deploy step - ensure it matches the 'outputs.IMAGE' definition
           echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:staging" >> $GITHUB_OUTPUT
 
   deploy:
@@ -76,9 +77,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          envs: IMAGE=${{ needs.build.outputs.IMAGE }}
+          # Removed the 'envs' line, as it's not needed here and can cause confusion
           script: |
-            # IMAGE="${{ needs.build.outputs.IMAGE }}"
-            echo "Deploying $IMAGE on staging"
-            /opt/nextflix/deploy.sh "$IMAGE"
-
+            # Reference the output directly within the script
+            echo "Deploying ${{ needs.build.outputs.IMAGE }} on staging"
+            /opt/nextflix/deploy.sh "${{ needs.build.outputs.IMAGE }}"
