@@ -61,7 +61,7 @@ jobs:
           docker push "$STAGING_IMAGE"
 
           # Set output for the deploy step
-          echo "image=$STAGING_IMAGE" >> $GITHUB_OUTPUT
+          echo "IMAGE=$STAGING_IMAGE" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to Staging
