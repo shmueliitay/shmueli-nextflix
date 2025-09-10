@@ -1,3 +1,21 @@
+name: CI/CD - NextFlix to EC2
+
+on:
+  pull_request:
+    branches: [ main ]       # Deploy to STAGING
+  push:
+    branches: [ main ]       # Deploy to PRODUCTION after PR merge
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  CONTAINER_NAME: nextflix
+  APP_PORT: 3000
+
 jobs:
   build-and-push:
     name: Build & Push Docker Image to ECR
@@ -41,4 +59,40 @@ jobs:
           docker tag "$IMAGE" "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
           docker push "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
           echo "image=${{ steps.ecr-login.outputs.registry }}/nextflix:staging" >> $GITHUB_OUTPUT
+
+  deploy-staging:
+    name: Deploy to STAGING (EC2)
+    needs: build-and-push
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to staging EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "Deploying ${{ needs.build-and-push.outputs.image }} to STAGING"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
+
+  deploy-production:
+    name: Deploy to PRODUCTION (EC2)
+    needs: build-and-push
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "Deploying ${{ needs.build-and-push.outputs.image }} to PRODUCTION"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
 
