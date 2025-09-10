@@ -77,6 +77,4 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            IMAGE="${{ needs.build.outputs.IMAGE }}"
-            echo "Deploying $IMAGE to staging"
-            /opt/nextflix/deploy.sh "$IMAGE"
+            echo "Deploying needs.build.outputs.imagetostaging"/opt/nextflix/deploy.sh"{{ needs.build.outputs.image }}"
