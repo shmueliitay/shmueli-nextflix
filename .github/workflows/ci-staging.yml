@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  ECR_REPOSITORY: nextflix
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   AWS_REGION: ${{ secrets.AWS_REGION }}
 
 jobs:
@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      # Correctly set output name to match the echo command
-      IMAGE: ${{ steps.set-image.outputs.IMAGE }}
+      # This output is what the deploy job will use to get the image name
+      IMAGE: ${{ steps.set-image.outputs.image }}
 
     steps:
       - name: Checkout code
@@ -34,8 +34,8 @@ jobs:
       - name: Install & run tests
         run: |
           npm ci
-          npm run build || echo "Skipping build"
-          npm test || echo "Tests failed or skipped"
+          npm run build
+          npm test
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -51,18 +51,17 @@ jobs:
         id: set-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
         run: |
           SHORT=${GITHUB_SHA::8}
-          IMAGE_TAG="$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT" # Use a different variable name to avoid conflict
+          IMAGE_TAG="$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT"
+          STAGING_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:staging"
           echo "Building $IMAGE_TAG"
-          docker build -t "$IMAGE_TAG" .
+          docker build -t "$IMAGE_TAG" -t "$STAGING_IMAGE" .
           docker push "$IMAGE_TAG"
-          docker tag "$IMAGE_TAG" "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:staging"
+          docker push "$STAGING_IMAGE"
 
-          # Set output for deploy step - ensure it matches the 'outputs.IMAGE' definition
-          echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:staging" >> $GITHUB_OUTPUT
+          # Set output for the deploy step
+          echo "image=$STAGING_IMAGE" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to Staging
@@ -70,15 +69,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to staging EC2
+      - name: Deploy to staging machine
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          # Removed the 'envs' line, as it's not needed here and can cause confusion
           script: |
-            # Reference the output directly within the script
-            echo "Deploying ${{ needs.build.outputs.IMAGE }} on staging"
-            /opt/nextflix/deploy.sh "${{ needs.build.outputs.IMAGE }}"
+            IMAGE="${{ needs.build.outputs.IMAGE }}"
+            echo "Deploying $IMAGE to staging"
+            /opt/nextflix/deploy.sh "$IMAGE"
