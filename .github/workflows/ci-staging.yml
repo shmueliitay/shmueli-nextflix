@@ -1,10 +1,12 @@
 name: CI/CD - NextFlix to EC2
 
 on:
-  pull_request:
-    branches: [ main ]       # Deploy to STAGING
   push:
-    branches: [ main ]       # Deploy to PRODUCTION after PR merge
+    branches:
+      - main       # Pushes to main trigger staging deploy
+  pull_request:
+    branches:
+      - main       # PRs to main also trigger staging deploy
 
 permissions:
   id-token: write
@@ -14,7 +16,7 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   CONTAINER_NAME: nextflix
-  APP_PORT: 3000
+  APP_PORT: ${{ secrets.APP_PORT || 3000 }}
 
 jobs:
   build-and-push:
@@ -61,10 +63,11 @@ jobs:
           echo "image=${{ steps.ecr-login.outputs.registry }}/nextflix:staging" >> $GITHUB_OUTPUT
 
   deploy-staging:
-    name: Deploy to STAGING (EC2)
+    name: Deploy to STAGING
     needs: build-and-push
-    if: ${{ github.event_name == 'pull_request' }}
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy to staging EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -74,15 +77,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            set -e
-            echo "Deploying ${{ needs.build-and-push.outputs.image }} to STAGING"
+            echo "Deploying ${{ needs.build-and-push.outputs.image }} on staging"
             /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
 
   deploy-production:
-    name: Deploy to PRODUCTION (EC2)
+    name: Deploy to PRODUCTION
     needs: build-and-push
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message != 'staging deploy'
     runs-on: ubuntu-latest
+
     steps:
       - name: Deploy to production EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -92,7 +95,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            set -e
-            echo "Deploying ${{ needs.build-and-push.outputs.image }} to PRODUCTION"
+            echo "Deploying ${{ needs.build-and-push.outputs.image }} on production"
             /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
 
