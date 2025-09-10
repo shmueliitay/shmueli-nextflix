@@ -3,11 +3,11 @@ name: CI/CD - NextFlix to EC2
 on:
   push:
     branches:
-      - main        # push to main triggers production
-      - '**'        # optional: push to other branches triggers staging
+      - main       # Deploy to production on main branch push
   pull_request:
     branches:
-      - main        # PRs to main trigger staging
+      - main       # Deploy to staging on PRs to main
+  workflow_dispatch:  # Optional: manual trigger
 
 permissions:
   id-token: write
@@ -21,7 +21,7 @@ env:
 
 jobs:
   build-and-push:
-    name: Build & Push Docker Image to ECR
+    name: Build & Push Docker Images
     runs-on: ubuntu-latest
     outputs:
       staging-image: ${{ steps.build-staging.outputs.image }}
@@ -52,33 +52,29 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # -------------------------------
-      # Build staging image
+      # Build and push staging image
       - name: Build & push staging image
         id: build-staging
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
         run: |
           SHORT_SHA=${GITHUB_SHA::8}
-          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:staging-${SHORT_SHA}"
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-      # -------------------------------
-      # Build production image
+      # Build and push production image only on main branch
       - name: Build & push production image
         id: build-prod
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           SHORT_SHA=${GITHUB_SHA::8}
-          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:prod-${SHORT_SHA}"
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:prod-$SHORT_SHA"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
           docker tag "$IMAGE" "${{ steps.ecr-login.outputs.registry }}/nextflix:latest"
           docker push "${{ steps.ecr-login.outputs.registry }}/nextflix:latest"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-  # -------------------------------
   deploy-staging:
     name: Deploy to STAGING
     needs: build-and-push
@@ -97,7 +93,6 @@ jobs:
             echo "Deploying ${{ needs.build-and-push.outputs.staging-image }} on staging"
             /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.staging-image }}"
 
-  # -------------------------------
   deploy-production:
     name: Deploy to PRODUCTION
     needs: build-and-push
