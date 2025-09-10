@@ -3,10 +3,11 @@ name: CI/CD - NextFlix to EC2
 on:
   push:
     branches:
-      - main       # Pushes to main trigger staging deploy
+      - main       # Production deploy
+      - staging    # Optional: testing deploy from staging branch
   pull_request:
     branches:
-      - main       # PRs to main also trigger staging deploy
+      - main       # PRs to main trigger staging deploy
 
 permissions:
   id-token: write
@@ -23,7 +24,8 @@ jobs:
     name: Build & Push Docker Image to ECR
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.export-image.outputs.image }}
+      staging-image: ${{ steps.build-staging.outputs.image }}
+      prod-image: ${{ steps.build-prod.outputs.image }}
 
     steps:
       - name: Checkout code
@@ -50,22 +52,36 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag and push Docker image
-        id: export-image
+      # Build staging image
+      - name: Build & push staging Docker image
+        id: build-staging
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
         run: |
           SHORT_SHA=${GITHUB_SHA::8}
-          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:$SHORT_SHA"
-          echo "Building image $IMAGE"
-          docker build -t "$IMAGE" .
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
+          SHA_IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:staging-${SHORT_SHA}"
+          docker build -t "$IMAGE" -t "$SHA_IMAGE" .
           docker push "$IMAGE"
-          docker tag "$IMAGE" "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
-          docker push "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
-          echo "image=${{ steps.ecr-login.outputs.registry }}/nextflix:staging" >> $GITHUB_OUTPUT
+          docker push "$SHA_IMAGE"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      # Build production image
+      - name: Build & push production Docker image
+        id: build-prod
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          SHORT_SHA=${GITHUB_SHA::8}
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:latest"
+          SHA_IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:${SHORT_SHA}"
+          docker build -t "$IMAGE" -t "$SHA_IMAGE" .
+          docker push "$IMAGE"
+          docker push "$SHA_IMAGE"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
   deploy-staging:
     name: Deploy to STAGING
     needs: build-and-push
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-latest
 
     steps:
@@ -77,13 +93,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            echo "Deploying ${{ needs.build-and-push.outputs.image }} on staging"
-            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
+            echo "Deploying ${{ needs.build-and-push.outputs.staging-image }} on staging"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.staging-image }}"
 
   deploy-production:
     name: Deploy to PRODUCTION
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message != 'staging deploy'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -95,6 +111,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            echo "Deploying ${{ needs.build-and-push.outputs.image }} on production"
-            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.image }}"
+            echo "Deploying ${{ needs.build-and-push.outputs.prod-image }} on production"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.prod-image }}"
 
