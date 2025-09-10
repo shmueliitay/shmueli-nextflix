@@ -20,7 +20,7 @@ jobs:
 
     outputs:
       # This output is what the deploy job will use to get the image name
-      IMAGE: ${{ steps.set-image.outputs.image }}
+      image: ${{ steps.set-image.outputs.image }}
 
     steps:
       - name: Checkout code
