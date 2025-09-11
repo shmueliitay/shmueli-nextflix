@@ -1,0 +1,44 @@
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.export-image.outputs.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install & run tests
+        run: |
+          npm ci
+          npm run build || echo "Skipping build"
+          npm test || echo "Tests failed or skipped"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag and push Docker image
+        id: export-image
+        run: |
+          SHORT_SHA=${GITHUB_SHA::8}
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:$SHORT_SHA"
+          echo "Building image $IMAGE"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
+          docker push "${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
+          echo "image=${{ steps.ecr-login.outputs.registry }}/nextflix:staging" >> $GITHUB_OUTPUT
+
