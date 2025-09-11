@@ -5,6 +5,7 @@
   "scripts": {
     "test": "echo \"No tests specified\" && exit 0",
     "build": "next build"
+    "start": "next start -p 80"
   },
   "dependencies": {
     "axios": "^0.21.1",
