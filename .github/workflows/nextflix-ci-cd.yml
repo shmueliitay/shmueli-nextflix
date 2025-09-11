@@ -1,58 +1,64 @@
 name: Deploy Nextflix
 
 on:
-  push:
-    branches:
-      - main   # Deploy to staging on push
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main   # Deploy to prod on PR merge
+push:
+branches:
+- main    # Deploy to staging on push
+pull_request:
+types:
+- closed
+branches:
+- main    # Deploy to prod on PR merge
 
 permissions:
-  id-token: write
-  contents: read
+id-token: write
+contents: read
 
 env:
-  AWS_REGION: eu-central-1
-  ECR_REPOSITORY: nextflix
+AWS_REGION: eu-central-1
+ECR_REPOSITORY: nextflix
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+deploy:
+runs-on: ubuntu-latest
+steps:
+- name: Checkout repo
+uses: actions/checkout@v4
 
-      - name: Configure AWS credentials from OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::922581758696:role/GitHubActions-Nextflix-Role
-          aws-region: ${{ env.AWS_REGION }}
+  - name: Configure AWS credentials from OIDC
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::922581758696:role/GitHubActions-Nextflix-Role
+      aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region $AWS_REGION \
-          | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
+  - name: Login to Amazon ECR
+    run: |
+      aws ecr get-login-password --region $AWS_REGION \
+      | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
 
-      - name: Build and Push Docker image
-        run: |
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+  - name: Build and Push Docker image
+    run: |
+      IMAGE_TAG=${{ github.sha }}
+      docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+      docker tag $ECR_REPOSITORY:$IMAGE_TAG 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+      docker push 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+      echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
-          username: ubuntu
-          key: ${{ github.event_name == 'push' && secrets.SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
-          script: |
-            docker stop nextflix || true
-            docker rm nextflix || true
-            docker pull ${{ env.IMAGE_URI }}
-            docker run -d --name nextflix -p 80:3000 ${{ env.IMAGE_URI }}
+  - name: Deploy to EC2
+    uses: appleboy/ssh-action@v1.0.0
+    with:
+      host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
+      username: ubuntu
+      key: ${{ secrets.SSH_PRIVATE_KEY }}
+      script: |
+        echo "Starting deployment script on EC2..."
+        echo "Logging in to ECR..."
+        aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin 922581758696.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        echo "Stopping and removing existing container..."
+        docker stop nextflix || true
+        docker rm nextflix || true
+        echo "Pulling new image: ${{ env.IMAGE_URI }}"
+        docker pull ${{ env.IMAGE_URI }}
+        echo "Running new container..."
+        docker run -d --name nextflix -p 80:3000 ${{ env.IMAGE_URI }}
 
