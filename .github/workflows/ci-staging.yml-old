@@ -1,0 +1,113 @@
+name: CI/CD - NextFlix to EC2
+
+on:
+  push:
+    branches:
+      - main       # Deploy to production on main branch push
+  pull_request:
+    branches:
+      - main       # Deploy to staging on PRs to main
+  workflow_dispatch:  # Optional: manual trigger
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  CONTAINER_NAME: nextflix
+  APP_PORT: ${{ secrets.APP_PORT || 3000 }}
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      staging-image: ${{ steps.build-staging.outputs.image }}
+      prod-image: ${{ steps.build-prod.outputs.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install & run tests
+        run: |
+          npm ci
+          npm run build || echo "Skipping build"
+          npm test || echo "Tests failed or skipped"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build and push staging image
+      - name: Build & push staging image
+        id: build-staging
+        run: |
+          SHORT_SHA=${GITHUB_SHA::8}
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:staging"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      # Build and push production image only on main branch
+      - name: Build & push production image
+        id: build-prod
+        if: github.ref == 'refs/heads/main'
+        run: |
+          SHORT_SHA=${GITHUB_SHA::8}
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/nextflix:prod-$SHORT_SHA"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ steps.ecr-login.outputs.registry }}/nextflix:latest"
+          docker push "${{ steps.ecr-login.outputs.registry }}/nextflix:latest"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+  deploy-staging:
+    name: Deploy to STAGING
+    needs: build-and-push
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to staging EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            echo "Deploying ${{ needs.build-and-push.outputs.staging-image }} on staging"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.staging-image }}"
+
+  deploy-production:
+    name: Deploy to PRODUCTION
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to production EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            echo "Deploying ${{ needs.build-and-push.outputs.prod-image }} on production"
+            /opt/nextflix/deploy.sh "${{ needs.build-and-push.outputs.prod-image }}"
+
