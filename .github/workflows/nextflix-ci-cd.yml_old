@@ -3,8 +3,12 @@ name: Deploy Nextflix
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:   # allows manual trigger from Actions tab
+      - main   # Deploy to staging on push
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main   # Deploy to prod on PR merge
 
 permissions:
   id-token: write
@@ -12,8 +16,7 @@ permissions:
 
 env:
   AWS_REGION: eu-central-1
-  # pull repository name from GitHub secret instead of hard-coding
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  ECR_REPOSITORY: nextflix
 
 jobs:
   deploy:
@@ -41,22 +44,15 @@ jobs:
           docker push 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
           echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Export ECR password for EC2
-        run: |
-          echo "ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)" >> $GITHUB_ENV
-
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_URI,ECR_PASSWORD
+          key: ${{ github.event_name == 'push' && secrets.SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Starting deployment script on EC2..."
-            echo $ECR_PASSWORD | docker login --username AWS --password-stdin 922581758696.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
             docker stop nextflix || true
             docker rm nextflix || true
-            docker pull $IMAGE_URI
-            docker run -d --name nextflix -p 80:80 $IMAGE_URI
+            docker pull ${{ env.IMAGE_URI }}
+            docker run -d --name nextflix -p 80:3000 ${{ env.IMAGE_URI }}
 
