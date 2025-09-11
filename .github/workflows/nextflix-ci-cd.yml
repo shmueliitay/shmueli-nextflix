@@ -1,3 +1,11 @@
+name: Deploy Nextflix
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:   # allows manual trigger from Actions tab
+
 permissions:
   id-token: write
   contents: read
@@ -38,16 +46,13 @@ jobs:
           host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: IMAGE_URI
           script: |
             echo "Starting deployment script on EC2..."
-            echo "Logging in to ECR..."
             aws ecr get-login-password --region ${{ env.AWS_REGION }} \
               | docker login --username AWS --password-stdin 922581758696.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
-            echo "Stopping and removing existing container..."
             docker stop nextflix || true
             docker rm nextflix || true
-            echo "Pulling new image..."
             docker pull $IMAGE_URI
-            echo "Starting new container..."
             docker run -d --name nextflix -p 80:80 $IMAGE_URI
 
