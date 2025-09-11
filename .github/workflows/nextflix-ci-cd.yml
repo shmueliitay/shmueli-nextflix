@@ -61,4 +61,3 @@ uses: actions/checkout@v4
         docker pull ${{ env.IMAGE_URI }}
         echo "Running new container..."
         docker run -d --name nextflix -p 80:3000 ${{ env.IMAGE_URI }}
-
