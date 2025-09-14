@@ -101,36 +101,3 @@ jobs:
         script: |
           chmod +x /opt/nextflix/deploy.sh
           /opt/nextflix/deploy.sh $IMAGE_URI
-
-
-
-
-
-
-
-
-
-
-      # -------------------------------
-      # Deploy to EC2 (staging or production)
-      # -------------------------------
-      #- name: Deploy to EC2
-      #  uses: appleboy/ssh-action@v1.0.0
-      #  with:
-      #    host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
-      #    username: ubuntu
-      #    key: ${{ secrets.SSH_PRIVATE_KEY }}
-      #    envs: IMAGE_URI,AWS_REGION
-      #   script: |
-            #  echo "Logging in to ECR on EC2..."
-            #  aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
-            #  echo "Stopping previous container if exists..."
-            #  docker stop nextflix || true
-            #  docker rm nextflix || true
-            #  echo "Pulling latest image: $IMAGE_URI"
-            #  docker pull $IMAGE_URI
-            #  echo "Starting container..."
-            #  docker run -d --name nextflix -p 80:80 $IMAGE_URI
-            #chmod +x /opt/nextflix/deploy.sh
-            #/opt/nextflix/deploy.sh $IMAGE_URI
-
