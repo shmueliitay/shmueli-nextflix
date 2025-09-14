@@ -71,13 +71,6 @@ jobs:
           IMAGE_TAG=$(aws ecr list-images --repository-name $ECR_REPOSITORY --query 'imageIds[-1].imageTag' --output text --region $AWS_REGION)
           echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      # -------------------------------
-      # Generate ECR password for EC2
-      # -------------------------------
-      - name: Get ECR login password
-        run: |
-          echo "ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)" >> $GITHUB_ENV
-
 
       # -------------------------------
       # Deploy to EC2 (staging or production)
@@ -90,13 +83,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: IMAGE_URI,AWS_REGION
           script: |
-            echo "Logging in to ECR on EC2..."
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
-            echo "Stopping previous container if exists..."
-            docker stop nextflix || true
-            docker rm nextflix || true
-            echo "Pulling latest image: $IMAGE_URI"
-            docker pull $IMAGE_URI
-            echo "Starting container..."
-            docker run -d --name nextflix -p 80:80 $IMAGE_URI
+          #  echo "Logging in to ECR on EC2..."
+          #  aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
+          #  echo "Stopping previous container if exists..."
+          #  docker stop nextflix || true
+          #  docker rm nextflix || true
+          #  echo "Pulling latest image: $IMAGE_URI"
+          #  docker pull $IMAGE_URI
+          #  echo "Starting container..."
+          #  docker run -d --name nextflix -p 80:80 $IMAGE_URI
+            chmod +x /opt/nextflix/deploy.sh
+            /opt/nextflix/deploy.sh $IMAGE_URI
 
