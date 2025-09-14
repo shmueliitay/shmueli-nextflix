@@ -84,7 +84,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: IMAGE_URI,AWS_REGION
           script: |
-            chmod +x /opt/nextflix/deploy.sh
             /opt/nextflix/deploy.sh $IMAGE_URI
 
       # -----------------------------------
@@ -99,5 +98,4 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: IMAGE_URI,AWS_REGION
           script: |
-            chmod +x /opt/nextflix/deploy.sh
             /opt/nextflix/deploy.sh $IMAGE_URI
