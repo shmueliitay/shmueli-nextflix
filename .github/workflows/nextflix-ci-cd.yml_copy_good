@@ -3,7 +3,12 @@ name: Nextflix CI/CD
 on:
   push:
     branches:
-      - main
+      - main       # Trigger on push to main for staging deployment
+  pull_request:
+    types:
+      - closed    # Trigger on PR merge
+    branches:
+      - main      # Deploy to production on PR merge
 
 permissions:
   id-token: write
@@ -18,36 +23,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -------------------------------
+      # Checkout repository
+      # -------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+      # -------------------------------
+      # Configure AWS credentials via OIDC
+      # -------------------------------
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::922581758696:role/GitHubActions-Nextflix-Role
           aws-region: ${{ env.AWS_REGION }}
 
       # -------------------------------
-      # Detect if this is a PR merge
-      # -------------------------------
-      - name: Detect PR Merge
-        id: detect_merge
-        run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Commit message: $COMMIT_MSG"
-
-          if [[ "$COMMIT_MSG" == *"Merge pull request"* ]]; then
-            echo "Detected PR merge."
-            echo "is_merged=true" >> $GITHUB_OUTPUT
-          else
-            echo "Detected regular push."
-            echo "is_merged=false" >> $GITHUB_OUTPUT
-          fi
-
-      # -------------------------------
-      # Build, Test, Push Docker Image
+      # Build, test, and push Docker image (staging)
       # -------------------------------
       - name: Build, Test, and Push Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           IMAGE_TAG=${{ github.sha }}
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
@@ -64,13 +59,24 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
           docker push 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
+          echo "Exporting IMAGE_URI..."
           echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
       # -------------------------------
-      # Deploy to STAGING
+      # Pull latest Docker image for production (on PR merge)
       # -------------------------------
+      - name: Pull latest Docker image for production
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        run: |
+          IMAGE_TAG=$(aws ecr list-images --repository-name $ECR_REPOSITORY --query 'imageIds[-1].imageTag' --output text --region $AWS_REGION)
+          echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+
+      # -----------------------------------
+      # Deploy to Staging (on push to main)
+      # -----------------------------------
       - name: Deploy to EC2 Staging
-        if: steps.detect_merge.outputs.is_merged == 'false'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -80,11 +86,11 @@ jobs:
           script: |
             /opt/nextflix/deploy.sh $IMAGE_URI
 
-      # -------------------------------
-      # Deploy to PRODUCTION
-      # -------------------------------
+      # -----------------------------------
+      # Deploy to Production (on PR merge to main)
+      # -----------------------------------
       - name: Deploy to EC2 Production
-        if: steps.detect_merge.outputs.is_merged == 'true'
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -93,4 +99,3 @@ jobs:
           envs: IMAGE_URI,AWS_REGION
           script: |
             /opt/nextflix/deploy.sh $IMAGE_URI
-
