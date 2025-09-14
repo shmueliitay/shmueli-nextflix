@@ -79,13 +79,13 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v1.0.0
         with:
-        host: ${{ secrets.STAGING_HOST }}
-        username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        envs: IMAGE_URI,AWS_REGION
-        script: |
-          chmod +x /opt/nextflix/deploy.sh
-          /opt/nextflix/deploy.sh $IMAGE_URI
+          host: ${{ secrets.STAGING_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: IMAGE_URI,AWS_REGION
+          script: |
+            chmod +x /opt/nextflix/deploy.sh
+            /opt/nextflix/deploy.sh $IMAGE_URI
 
       # -----------------------------------
       # Deploy to Production (on PR merge to main)
@@ -94,10 +94,10 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
         uses: appleboy/ssh-action@v1.0.0
         with:
-        host: ${{ secrets.PROD_HOST }}
-        username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        envs: IMAGE_URI,AWS_REGION
-        script: |
-          chmod +x /opt/nextflix/deploy.sh
-          /opt/nextflix/deploy.sh $IMAGE_URI
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: IMAGE_URI,AWS_REGION
+          script: |
+            chmod +x /opt/nextflix/deploy.sh
+            /opt/nextflix/deploy.sh $IMAGE_URI
