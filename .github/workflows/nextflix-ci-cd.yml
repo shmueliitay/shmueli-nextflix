@@ -72,17 +72,56 @@ jobs:
           echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
 
+      # -----------------------------------
+      # Deploy to Staging (on push to main)
+      # -----------------------------------
+      - name: Deploy to EC2 Staging
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+        host: ${{ secrets.STAGING_HOST }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        envs: IMAGE_URI,AWS_REGION
+        script: |
+          chmod +x /opt/nextflix/deploy.sh
+          /opt/nextflix/deploy.sh $IMAGE_URI
+
+      # -----------------------------------
+      # Deploy to Production (on PR merge to main)
+      # -----------------------------------
+      - name: Deploy to EC2 Production
+        if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+        host: ${{ secrets.PROD_HOST }}
+        username: ubuntu
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        envs: IMAGE_URI,AWS_REGION
+        script: |
+          chmod +x /opt/nextflix/deploy.sh
+          /opt/nextflix/deploy.sh $IMAGE_URI
+
+
+
+
+
+
+
+
+
+
       # -------------------------------
       # Deploy to EC2 (staging or production)
       # -------------------------------
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_URI,AWS_REGION
-          script: |
+      #- name: Deploy to EC2
+      #  uses: appleboy/ssh-action@v1.0.0
+      #  with:
+      #    host: ${{ github.event_name == 'push' && secrets.STAGING_HOST || secrets.PROD_HOST }}
+      #    username: ubuntu
+      #    key: ${{ secrets.SSH_PRIVATE_KEY }}
+      #    envs: IMAGE_URI,AWS_REGION
+      #   script: |
             #  echo "Logging in to ECR on EC2..."
             #  aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 922581758696.dkr.ecr.$AWS_REGION.amazonaws.com
             #  echo "Stopping previous container if exists..."
@@ -92,6 +131,6 @@ jobs:
             #  docker pull $IMAGE_URI
             #  echo "Starting container..."
             #  docker run -d --name nextflix -p 80:80 $IMAGE_URI
-            chmod +x /opt/nextflix/deploy.sh
-            /opt/nextflix/deploy.sh $IMAGE_URI
+            #chmod +x /opt/nextflix/deploy.sh
+            #/opt/nextflix/deploy.sh $IMAGE_URI
 
