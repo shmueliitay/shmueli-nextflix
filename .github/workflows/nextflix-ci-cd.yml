@@ -72,6 +72,14 @@ jobs:
           echo "IMAGE_URI=922581758696.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
       # -------------------------------
+      # Generate ECR password for EC2
+      # -------------------------------
+      - name: Get ECR login password
+        run: |
+          echo "ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)" >> $GITHUB_ENV
+
+
+      # -------------------------------
       # Deploy to EC2 (staging or production)
       # -------------------------------
       - name: Deploy to EC2
